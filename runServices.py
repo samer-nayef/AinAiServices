@@ -19,7 +19,7 @@ logging.basicConfig(
 logger = logging.getLogger()
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-os.chdir(os.path.dirname(sys.argv[0]))
+#os.chdir(os.path.dirname(sys.argv[0]))
 cfg = configparser.ConfigParser()
 cfg.read('configuration.cfg')
 
@@ -33,7 +33,7 @@ table = cfg.get('postgreconnection', 'table')
 def open_connection():
     try:
         conn = psycopg2.connect(dbname=db_name, user=db_user, password=db_password, host=host, port=port)
-        logger.info("Database connection established.")
+        # logger.info("Database connection established.")
         return conn
     except Exception as e:
         logger.error(f"Failed to connect to the database: {e}")
@@ -45,7 +45,7 @@ def runservice():
     try:
         raqim_video_text()
     except BaseException as e:
-        print(e)
+        # print(e)
         logger.error(str(e))
 
 
@@ -61,14 +61,14 @@ def raqim_video_text():
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
 
         while True:
-            logger.info('start text raqim service')
+            # logger.info('start text raqim service')
 
             cur.execute(f"SELECT id,artext FROM {table} where updated_by_raqim = false and translated = TRUE and artext is not null order by creationdate DESC;")
 
             rows = cur.fetchall()
 
             if not rows:
-                logger.info("⏸️ No unprocessed videos. Sleeping for 5 minutes...")
+                # logger.info("⏸️ No unprocessed videos. Sleeping for 5 minutes...")
                 print("⏸️ No unprocessed videos. Sleeping for 5 minutes...")
                 time.sleep(300)
                 continue
