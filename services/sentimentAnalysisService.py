@@ -27,11 +27,13 @@ def run(text):
 def parse_item_to_mongo(items):
     n = dict()
     try:
-        for item in items:
-            for k, v in item.items():
-                """valueEN = {i for i in CLASSIFY_LABELS if CLASSIFY_LABELS[i] == k}
-                valueEN = ' '.join(valueEN)"""
-                n[k] = v
+        if items:
+            for item in items:
+                for k, v in item.items():
+                    """valueEN = {i for i in CLASSIFY_LABELS if CLASSIFY_LABELS[i] == k}
+                    valueEN = ' '.join(valueEN)"""
+                    n[k] = round(v * 100)
+
 
     except BaseException as e:
         logger.info('sentiment analysis service ' + str(e))

@@ -78,12 +78,12 @@ def raqim_video_text():
                 text = row.get('artext')
 
 
-
                 nerResult = NerService.run(text=text)
                 classifyResult = ClassifyService.run(text=text)
                 dialectDetectionResult = dialectDetectionService.run(text=text)
                 languageDetectionResult = LanguageDetectionService.run(text=text)
                 sentimentAnalysisResult = sentimentAnalysisService.run(text=text)
+
 
 
 

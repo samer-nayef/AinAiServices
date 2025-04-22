@@ -1,6 +1,6 @@
 from typing import Dict
 
-SERVER=''
+SERVER='http://192.168.200.135:8000'
 NER='/ner/predict/'
 CLASSIFY='/classify/predict/'
 DIALECT_DECT='/dialect_detection/predict/'

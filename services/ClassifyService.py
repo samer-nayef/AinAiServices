@@ -34,10 +34,10 @@ def parse_item_to_mongo(items):
     try:
         for item in items:
             for k, v in item.items():
-                if float(v.rstrip('%')) / 100 > 0.1:
+                if float(v.rstrip('%')) > 10:
                     valueEN = {i for i in CLASSIFY_LABELS if CLASSIFY_LABELS[i] == k}
                     valueEN = ' '.join(valueEN)
-                    result[valueEN] = float(v.rstrip('%')) / 100
+                    result[valueEN] = int(v.rstrip('%'))
     except Exception as e:
         logger.info('classify service ' + str(e))
         print(e)
