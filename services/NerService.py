@@ -33,7 +33,7 @@ def parse_item_to_mongo(items):
                 valueEN = ' '.join(valueEN)
                 if valueEN in result:
                     if str(k).replace(' ','_').replace('#',' ').replace('،','') not in result[valueEN]:
-                        value = result.get(valueEN) + ' ' + str(k).replace(' ','_').replace('#',' ').replace('،','')
+                        value = result.get(valueEN) + ' , ' + str(k).replace(' ','_').replace('#',' ').replace('،','')
                         result[valueEN] = value
                     else:
                         pass

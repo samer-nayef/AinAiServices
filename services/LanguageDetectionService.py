@@ -10,7 +10,7 @@ def run(text):
     try:
         url = SERVER + LANG_DECT
 
-        payload = {'inText': text}
+        payload = {'inText': text[:150]}
 
         headers = {'csrftoken': 'KTdvPydTnee58BcT50NZdkpGjuU1SNgc'}
 

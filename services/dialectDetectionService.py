@@ -11,7 +11,7 @@ def run(text):
 
     url = SERVER + DIALECT_DECT
 
-    payload = {'inText': text}
+    payload = {'inText': text[:500]}
 
     headers = {'X-CSRFToken': 'KTdvPydTnee58BcT50NZdkpGjuU1SNgcs'}
 
@@ -33,6 +33,6 @@ def parse_item_to_mongo(items):
         if not isinstance(items, list):
             raise ValueError("Input must be a list")
 
-        return {k: round(v * 100) for item in items for k, v in item.items() if v > 0.3}
+        return {k: round(v * 100) for item in items for k, v in item.items() if v > 0.1}
     except BaseException as e:
         logger.info('dialect detection service ' + str(e))
