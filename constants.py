@@ -3,6 +3,7 @@ from typing import Dict
 SERVER='http://192.168.200.135:8000'
 NER='/ner/predict/'
 CLASSIFY='/classify/predict/'
+SUMMARIZE = '/summarization/predict/'
 DIALECT_DECT='/dialect_detection/predict/'
 LANG_DECT='/language_detection/predict/'
 SENTIMENT_ANALYSIS='/sentiment_analysis/predict/'

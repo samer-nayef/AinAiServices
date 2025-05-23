@@ -9,7 +9,7 @@ import psycopg2 as psycopg2
 import psycopg2.extras
 
 from services import NerService, ClassifyService, dialectDetectionService, LanguageDetectionService, \
-    sentimentAnalysisService
+    sentimentAnalysisService, summarizationService
 
 logging.basicConfig(
     level=logging.INFO,
@@ -57,6 +57,7 @@ def raqim_video_text():
     add_column_if_not_exists(conn, "video", "raqimDetectLangService", "VARCHAR")
     add_column_if_not_exists(conn, "video", "raqimDialectService", "JSONB")
     add_column_if_not_exists(conn, "video", "raqimSentemintService", "JSONB")
+    add_column_if_not_exists(conn, "video", "raqimSummarizationService", "VARCHAR")
 
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
 
@@ -80,9 +81,11 @@ def raqim_video_text():
 
                 nerResult = NerService.run(text=text)
                 classifyResult = ClassifyService.run(text=text)
-                dialectDetectionResult = dialectDetectionService.run(text=text)
                 languageDetectionResult = LanguageDetectionService.run(text=text)
+                if languageDetectionResult.lower() == 'ar':
+                    dialectDetectionResult = dialectDetectionService.run(text=text)
                 sentimentAnalysisResult = sentimentAnalysisService.run(text=text)
+                summarizationResult = summarizationService.run(text=text)
 
 
 
@@ -95,10 +98,12 @@ def raqim_video_text():
                                             raqimClassifyService = %s,
                                             raqimDetectLangService= %s,
                                             raqimDialectService = %s,
-                                            raqimSentemintService = %s
+                                            raqimSentemintService = %s,
+                                            raqimSummarizationService = %s
                                         WHERE id = %s
                                         """,
-                    (json.dumps(nerResult), json.dumps(classifyResult), json.dumps(languageDetectionResult), json.dumps(dialectDetectionResult), json.dumps(sentimentAnalysisResult), id)
+                    (json.dumps(nerResult), json.dumps(classifyResult), json.dumps(languageDetectionResult), json.dumps(dialectDetectionResult), json.dumps(sentimentAnalysisResult),
+                     summarizationResult,id)
                     # Pass values as parameters
                 )
                 conn.commit()
