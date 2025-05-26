@@ -1,27 +1,37 @@
-import json
-
-import requests
+from typing import Optional
+import logging
 
 from constants import SERVER, LANG_DECT
-import logging
+from .utils import validate_text, make_request, ServiceError
+
 logger = logging.getLogger()
 
-def run(text):
+def run(text: str) -> str:
+    """
+    Detect the language of the input text.
+    
+    Args:
+        text: Input text to analyze
+        
+    Returns:
+        Detected language code or 'undefined' if detection fails
+        
+    Raises:
+        ServiceError: If detection fails
+        ValueError: If input is invalid
+    """
     try:
+        validate_text(text)
+        
+        # Limit text length for language detection
+        text = text[:150]
+        
         url = SERVER + LANG_DECT
-
-        payload = {'inText': text[:150]}
-
-        headers = {'csrftoken': 'KTdvPydTnee58BcT50NZdkpGjuU1SNgc'}
-
-        response = requests.request("POST", url, headers=headers, data=payload)
-        res = json.loads(response.text)
-
-        dic = res.get('LangResult', {}).get('lang')
-        if dic:
-            return dic
-        else:
-            return 'undefined'
-
-    except BaseException as e:
-        logger.info('language detection service ' + str(e))
+        response = make_request(url, {'inText': text})
+        
+        language = response.get('LangResult', {}).get('lang')
+        return language if language else 'undefined'
+        
+    except Exception as e:
+        logger.error(f"Language detection failed: {str(e)}")
+        raise ServiceError(f"Language detection failed: {str(e)}")

@@ -1,20 +1,39 @@
-import json
+from typing import Dict, Optional
+import logging
 
 from constants import SERVER, TRANSLATE, TRANSLATE_IN_LANGUAGE
+from .utils import validate_text, make_request, ServiceError
 
+logger = logging.getLogger()
 
-def run(text):
-    import requests
-
-    url = SERVER + TRANSLATE
-
-    payload = {'inText': text,
-               'inLanguages': TRANSLATE_IN_LANGUAGE}
-    headers = {'X-CSRFToken': 'KTdvPydTnee58BcT50NZdkpGjuU1SNgcs'}
-
-    response = requests.request("POST", url, headers=headers, data=payload)
-    res = json.loads(response.text)
-
-    dic = res['translateResult']
-
-    return dic
+def run(text: str) -> Optional[Dict]:
+    """
+    Translate the input text.
+    
+    Args:
+        text: Input text to translate
+        
+    Returns:
+        Translation results or None if translation fails
+        
+    Raises:
+        ServiceError: If translation fails
+        ValueError: If input is invalid
+    """
+    try:
+        validate_text(text)
+        
+        url = SERVER + TRANSLATE
+        response = make_request(
+            url,
+            {
+                'inText': text,
+                'inLanguages': TRANSLATE_IN_LANGUAGE
+            }
+        )
+        
+        return response.get('translateResult')
+        
+    except Exception as e:
+        logger.error(f"Translation failed: {str(e)}")
+        raise ServiceError(f"Translation failed: {str(e)}")

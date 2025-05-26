@@ -1,109 +1,89 @@
-from constants import SERVER, CLASSIFY, CLASSIFY_IN_CLASS, CLASSIFY_LABELS
-
+from typing import Dict, List, Optional
 import logging
-import requests
-import json
+
+from constants import SERVER, CLASSIFY, CLASSIFY_IN_CLASS, CLASSIFY_LABELS
+from .utils import (
+    validate_text, make_request, ServiceError,
+    create_session, chunk_text, average_and_normalize
+)
 
 logger = logging.getLogger()
 
-from collections import defaultdict
-
-
-
-def run(text):
-    url = SERVER + CLASSIFY
-    headers = {
-        'X-CSRFToken': 'KTdvPydTnee58BcT50NZdkpGjuU1SNgcs'
-    }
-
-    chunk_size = 500  # Safe size below token limit
-    overlap = 50       # Optional overlap for smoother context
-    chunks = [
-        text[i:i + chunk_size]
-        for i in range(0, len(text), chunk_size - overlap)
-    ]
-
-    all_results = []
-
-    for chunk in chunks:
-        payload = {
-            'inText': chunk,
-            'inClass': CLASSIFY_IN_CLASS
-        }
-
-        try:
-            response = requests.post(url, headers=headers, data=payload)
-            res = json.loads(response.text)
-            dic = res.get('ClassifyResult', {})
-            classifys = parse_item_to_mongo(dic)
-
-            if classifys:
-                # print(f"Chunk result: {classifys}")
-                all_results.append(classifys)
-
-        except Exception as e:
-            print(f"Error processing chunk: {e}")
-    final_result = average_and_normalize(all_results)
-
-    return final_result
-
-
-def average_and_normalize(chunk_results):
-    totals = defaultdict(float)
-    counts = defaultdict(int)
-
-    # Accumulate all class scores
-    for result in chunk_results:
-        for label, value in result.items():
-            totals[label] += value
-            counts[label] += 1
-
-    # Average per label
-    averaged = {label: totals[label] / counts[label] for label in totals}
-
-    # Normalize to sum to 100
-    total_score = sum(averaged.values())
-    normalized = {label: round((score / total_score) * 100, 1) for label, score in averaged.items()}
-
-    # Sort by highest score
-    return dict(sorted(normalized.items(), key=lambda x: x[1], reverse=True))
-
-
-
-# def run(text):
-#     import requests
-#
-#     url = SERVER + CLASSIFY
-#
-#     payload = {
-#         'inText': text,
-#         'inClass': CLASSIFY_IN_CLASS}
-#
-#     headers = {
-#         'X-CSRFToken': 'KTdvPydTnee58BcT50NZdkpGjuU1SNgcs'
-#     }
-#
-#     response = requests.request("POST", url, headers=headers, data=payload)
-#     res = json.loads(response.text)
-#
-#     dic = res['ClassifyResult']
-#
-#     classifys = parse_item_to_mongo(dic)
-#     if classifys:
-#         print(classifys)
-#     return classifys
-
-
-def parse_item_to_mongo(items):
+def parse_classification(items: List[Dict]) -> Dict[str, int]:
+    """
+    Parse classification results.
+    
+    Args:
+        items: List of classification results
+        
+    Returns:
+        Dictionary mapping categories to their confidence scores
+    """
     result = {}
     try:
         for item in items:
             for k, v in item.items():
                 if float(v.rstrip('%')) > 10:
-                    valueEN = {i for i in CLASSIFY_LABELS if CLASSIFY_LABELS[i] == k}
-                    valueEN = ' '.join(valueEN)
-                    result[valueEN] = int(v.rstrip('%'))
+                    value_en = {i for i in CLASSIFY_LABELS if CLASSIFY_LABELS[i] == k}
+                    value_en = ' '.join(value_en)
+                    result[value_en] = int(v.rstrip('%'))
+        return result
     except Exception as e:
-        logger.info('classify service ' + str(e))
-        print(e)
-    return result
+        logger.error(f"Error parsing classification results: {str(e)}")
+        raise ServiceError(f"Failed to parse classification results: {str(e)}")
+
+def run(text: str) -> Dict[str, float]:
+    """
+    Classify the input text.
+    
+    Args:
+        text: Input text to classify
+        
+    Returns:
+        Dictionary mapping categories to their confidence scores
+        
+    Raises:
+        ServiceError: If classification fails
+        ValueError: If input is invalid
+    """
+    try:
+        validate_text(text)
+        
+        url = SERVER + CLASSIFY
+        session = create_session()
+        chunks = chunk_text(text)
+        all_results = []
+
+        for chunk in chunks:
+            try:
+                response = make_request(
+                    url,
+                    {
+                        'inText': chunk,
+                        'inClass': CLASSIFY_IN_CLASS
+                    },
+                    session=session
+                )
+                
+                results = response.get('ClassifyResult', [])
+                classification = parse_classification(results)
+                
+                if classification:
+                    all_results.append(classification)
+                    
+            except ServiceError as e:
+                logger.error(f"Failed to process chunk: {str(e)}")
+                continue
+
+        if not all_results:
+            logger.warning("No valid classification results obtained")
+            return {}
+
+        return average_and_normalize(all_results)
+
+    except Exception as e:
+        logger.error(f"Classification failed: {str(e)}")
+        raise ServiceError(f"Classification failed: {str(e)}")
+    finally:
+        if 'session' in locals():
+            session.close()
