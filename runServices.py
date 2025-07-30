@@ -68,53 +68,56 @@ def add_column_if_not_exists(conn, table_name: str, column_name: str, column_typ
             cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type};")
             conn.commit()
 
-def process_batch(rows: List[Dict[str, Any]], cur) -> None:
+def process_batch(rows: List[Dict[str, Any]], conn) -> None:
     """Process a batch of rows and update the database."""
-    for row in rows:
-        try:
-            id = row.get('id')
-            text = row.get('artext')
-            
-            # Run all services
+    with conn.cursor() as cur:
+        for row in rows:
+            try:
+                id = row.get('id')
+                text = row.get('artext')
 
-            ner_result = NerService.run(text=text)
-            classify_result = ClassifyService.run(text=text)
-            language_detection_result = LanguageDetectionService.run(text=text)
-            dialect_detection_result = None
-            if language_detection_result.lower() == 'ar':
-                dialect_detection_result = dialectDetectionService.run(text=text)
+                # Run all services
 
-            sentiment_analysis_result = sentimentAnalysisService.run(text=text)
-            summarization_result = summarizationService.run(text=text)
+                ner_result = NerService.run(text=text)
+                classify_result = ClassifyService.run(text=text)
+                language_detection_result = LanguageDetectionService.run(text=text)
+                dialect_detection_result = None
+                if language_detection_result.lower() == 'ar':
+                    dialect_detection_result = dialectDetectionService.run(text=text)
 
-            # Update database
-            cur.execute(
-                f"""
-                UPDATE {TABLE_NAME} 
-                SET updated_by_raqim = TRUE,
-                    raqimNerService = %s,
-                    raqimClassifyService = %s,
-                    raqimDetectLangService = %s,
-                    raqimDialectService = %s,
-                    raqimSentemintService = %s,
-                    raqimSummarizationService = %s
-                WHERE id = %s
-                """,
-                (
-                    json.dumps(ner_result),
-                    json.dumps(classify_result),
-                    json.dumps(language_detection_result),
-                    json.dumps(dialect_detection_result),
-                    json.dumps(sentiment_analysis_result),
-                    summarization_result,
-                    id
+                sentiment_analysis_result = sentimentAnalysisService.run(text=text)
+                summarization_result = summarizationService.run(text=text)
+
+                # Update database
+                cur.execute(
+                    f"""
+                    UPDATE {TABLE_NAME} 
+                    SET updated_by_raqim = TRUE,
+                        raqimNerService = %s,
+                        raqimClassifyService = %s,
+                        raqimDetectLangService = %s,
+                        raqimDialectService = %s,
+                        raqimSentemintService = %s,
+                        raqimSummarizationService = %s
+                    WHERE id = %s
+                    """,
+                    (
+                        json.dumps(ner_result),
+                        json.dumps(classify_result),
+                        json.dumps(language_detection_result),
+                        json.dumps(dialect_detection_result),
+                        json.dumps(sentiment_analysis_result),
+                        summarization_result,
+                        id
+                    )
                 )
-            )
-            logger.info(f'Successfully processed record: {id}')
-            
-        except Exception as e:
-            logger.error(f"Error processing record {id}: {str(e)}")
-            continue
+                conn.commit()
+                logger.info(f'Successfully processed record: {id}')
+                print(f'Successfully processed record: {id}')
+
+            except Exception as e:
+                logger.error(f"Error processing record {id}: {str(e)}")
+                continue
 
 def raqim_video_text() -> None:
     """Main processing function for video text analysis."""
@@ -157,8 +160,8 @@ def raqim_video_text() -> None:
                         continue
 
                     # Process batch
-                    process_batch(rows, cur)
-                    conn.commit()
+                    process_batch(rows, conn)
+                    # conn.commit()
                     
                 except Exception as e:
                     logger.error(f"Error in main processing loop: {str(e)}")
