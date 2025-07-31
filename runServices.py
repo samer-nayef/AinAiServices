@@ -97,7 +97,7 @@ def process_batch(rows: List[Dict[str, Any]], conn) -> None:
                         raqimClassifyService = %s,
                         raqimDetectLangService = %s,
                         raqimDialectService = %s,
-                        raqimSentemintService = %s,
+                        raqimSentimentService = %s,
                         raqimSummarizationService = %s
                     WHERE id = %s
                     """,
@@ -128,7 +128,7 @@ def raqim_video_text() -> None:
             "raqimClassifyService": "JSONB",
             "raqimDetectLangService": "VARCHAR",
             "raqimDialectService": "JSONB",
-            "raqimSentemintService": "JSONB",
+            "raqimSentimentService": "JSONB",
             "raqimSummarizationService": "VARCHAR"
         }
         
