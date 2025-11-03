@@ -8,12 +8,13 @@ from requests.packages.urllib3.util.retry import Retry
 from functools import lru_cache
 import time
 
+import runServices
 from .utils import (
     validate_text, make_request, ServiceError,
     create_session, chunk_text, CSRF_TOKEN
 )
 
-from constants import SERVER, SENTIMENT_ANALYSIS
+from constants import SENTIMENT_ANALYSIS
 
 logger = logging.getLogger()
 
@@ -123,7 +124,7 @@ def run(text: str) -> Dict[str, float]:
     try:
         validate_text(text)
         
-        url = SERVER + SENTIMENT_ANALYSIS
+        url = runServices.cfg.get('urls','SERVER') + SENTIMENT_ANALYSIS
         headers = {
             'X-CSRFToken': CSRF_TOKEN  # Using token from configuration
         }

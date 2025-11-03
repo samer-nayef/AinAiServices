@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 import logging
 
+import runServices
 from constants import SERVER, CLASSIFY, CLASSIFY_IN_CLASS, CLASSIFY_LABELS
 from .utils import (
     validate_text, make_request, ServiceError,
@@ -49,7 +50,7 @@ def run(text: str) -> Dict[str, float]:
     try:
         validate_text(text)
         
-        url = SERVER + CLASSIFY
+        url = runServices.cfg.get('urls','SERVER') + CLASSIFY
         session = create_session()
         chunks = chunk_text(text)
         all_results = []

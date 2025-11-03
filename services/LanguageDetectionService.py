@@ -1,6 +1,7 @@
 from typing import Optional
 import logging
 
+import runServices
 from constants import SERVER, LANG_DECT
 from .utils import validate_text, make_request, ServiceError
 
@@ -26,7 +27,7 @@ def run(text: str) -> str:
         # Limit text length for language detection
         text = text[:150]
         
-        url = SERVER + LANG_DECT
+        url = runServices.cfg.get('urls','SERVER') + LANG_DECT
         response = make_request(url, {'inText': text})
         
         language = response.get('LangResult', {}).get('lang')

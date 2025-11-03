@@ -1,7 +1,8 @@
 from typing import Dict, List, Optional
 import logging
 
-from constants import SERVER, NER, NER_LABELS
+import runServices
+from constants import NER, NER_LABELS
 from .utils import validate_text, make_request, ServiceError
 
 logger = logging.getLogger()
@@ -54,7 +55,7 @@ def run(text: str) -> Dict[str, str]:
     try:
         validate_text(text)
         
-        url = SERVER + NER
+        url = runServices.cfg.get('urls','SERVER') + NER
         response = make_request(url, {'inText': text})
         
         results = response.get('NERResult', [])

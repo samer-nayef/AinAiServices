@@ -1,7 +1,8 @@
 from typing import Dict, Optional
 import logging
 
-from constants import SERVER, TRANSLATE, TRANSLATE_IN_LANGUAGE
+import runServices
+from constants import TRANSLATE, TRANSLATE_IN_LANGUAGE
 from .utils import validate_text, make_request, ServiceError
 
 logger = logging.getLogger()
@@ -23,7 +24,7 @@ def run(text: str) -> Optional[Dict]:
     try:
         validate_text(text)
         
-        url = SERVER + TRANSLATE
+        url = runServices.cfg.get('urls','SERVER') + TRANSLATE
         response = make_request(
             url,
             {

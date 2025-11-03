@@ -1,7 +1,8 @@
 from typing import Dict, Optional
 import logging
 
-from constants import SERVER, DIALECT_DECT
+import runServices
+from constants import DIALECT_DECT
 from .utils import validate_text, make_request, ServiceError
 
 logger = logging.getLogger()
@@ -50,7 +51,7 @@ def run(text: str) -> Dict[str, float]:
         # Limit text length for dialect detection
         text = text[:500]
         
-        url = SERVER + DIALECT_DECT
+        url = runServices.cfg.get('urls','SERVER') + DIALECT_DECT
         response = make_request(url, {'inText': text})
         
         results = response.get('Result', [])

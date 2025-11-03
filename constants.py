@@ -1,6 +1,5 @@
 from typing import Dict
 
-SERVER='http://188.214.129.182:8001'
 NER='/ner/predict/'
 CLASSIFY='/classify/predict/'
 SUMMARIZE = '/summarization/predict/'
