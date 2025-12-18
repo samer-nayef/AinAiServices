@@ -7,10 +7,9 @@ import time
 from contextlib import contextmanager
 from typing import List, Dict, Any
 
-import psycopg2 as psycopg2
-import psycopg2.extras
-from psycopg2 import pool
+import requests
 
+import ain_auth_token
 from services import NerService, ClassifyService, dialectDetectionService, LanguageDetectionService, \
     sentimentAnalysisService, summarizationService
 
@@ -26,55 +25,66 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 cfg = configparser.ConfigParser()
 cfg.read('configuration.cfg')
 
-# Database configuration
-DB_CONFIG = {
-    'dbname': cfg.get('postgreconnection', 'db_name'),
-    'user': cfg.get('postgreconnection', 'db_user'),
-    'password': cfg.get('postgreconnection', 'db_password'),
-    'host': cfg.get('postgreconnection', 'host'),
-    'port': cfg.get('postgreconnection', 'port')
-}
-TABLE_NAME = cfg.get('postgreconnection', 'table')
 
-# Connection pool
-connection_pool = pool.ThreadedConnectionPool(
-    minconn=1,
-    maxconn=10,
-    **DB_CONFIG
-)
+USERNAME = cfg.get('wildfly', 'username')
+PASSWORD = cfg.get('wildfly', 'password')
 
-@contextmanager
-def get_db_connection():
-    """Context manager for database connections."""
-    conn = None
+WILDFLY_URL = cfg.get('wildfly','url')
+LOGIN_URL = cfg.get('wildfly','login')
+FETCH_VIDEOS_URL = WILDFLY_URL + cfg.get('wildfly','video_by_flags')
+UPDATE_VIDEO_URL = WILDFLY_URL + cfg.get('wildfly','update_video')
+YARAA_FLAG = cfg.get('video_flags', 'yaraa')
+TRANSLATE_FLAG = cfg.get('video_flags', 'translated')
+RAQIM_FLAG = cfg.get('video_flags', 'raqim')
+Text_NOT_FOUND = "Text not found"
+AIN_AUTH_TOKEN = None
+
+
+
+
+def update_video(video_id, ner_result, classify_result, language_detection_result, dialect_detection_result, sentiment_analysis_result, summarization_result):
+
+    print(f"[DEBUG] Updating video {video_id}...")
+    payload = {
+        "id": video_id,
+        TRANSLATE_FLAG: True,
+        YARAA_FLAG:True,
+        RAQIM_FLAG:True,
+        "videoDetails": {
+            "raqimNerService": json.dumps(ner_result or ""),
+            "raqimClassifyService": json.dumps(classify_result or ""),
+            "raqimDetectLangService": json.dumps(language_detection_result or ""),
+            "raqimDialectService": json.dumps(dialect_detection_result or ""),
+            "raqimSentimentService": json.dumps(sentiment_analysis_result or ""),
+            "raqimSummarizationService": json.dumps(summarization_result or "")
+        }
+    }
+
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {AIN_AUTH_TOKEN}'
+    }
     try:
-        conn = connection_pool.getconn()
-        yield conn
-    except Exception as e:
-        logger.error(f"Database connection error: {e}")
-        raise
-    finally:
-        if conn:
-            connection_pool.putconn(conn)
+        resp = requests.put(UPDATE_VIDEO_URL, headers=headers, json=payload, verify=False)
+        if resp.status_code != 200:
+            logger.error(f"Failed to update video {video_id}: {resp.status_code} {resp.text}")
+            print(f"[ERROR] Failed to update video {video_id}: {resp.status_code}")
+        else:
+            print(f"[SUCCESS] Video {video_id} updated.")
+    except requests.RequestException as e:
+        logger.error(f"Exception updating video {video_id}: {e}")
+        print(f"[ERROR] Exception updating video {video_id}: {e}")
 
-def add_column_if_not_exists(conn, table_name: str, column_name: str, column_type: str = "VARCHAR") -> None:
-    """Add a column to the table if it doesn't exist."""
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT 1 FROM information_schema.columns 
-            WHERE LOWER(table_name) = LOWER(%s) AND column_name = LOWER(%s)
-        """, (table_name, column_name))
-        if not cur.fetchone():
-            cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type};")
-            conn.commit()
 
-def process_batch(rows: List[Dict[str, Any]], conn) -> None:
+
+def process_batch(rows: List[Dict[str, Any]]) -> None:
     """Process a batch of rows and update the database."""
-    with conn.cursor() as cur:
-        for row in rows:
-            try:
+
+    for row in rows:
+        try:
+            if row.get('videoDetails', None):
                 id = row.get('id')
-                text = row.get('artext')
+                text = row.get('videoDetails').get('artext')
 
                 # Run all services
 
@@ -89,70 +99,51 @@ def process_batch(rows: List[Dict[str, Any]], conn) -> None:
                 summarization_result = summarizationService.run(text=text)
 
                 # Update database
-                cur.execute(
-                    f"""
-                    UPDATE {TABLE_NAME} 
-                    SET updated_by_raqim = TRUE,
-                        raqimNerService = %s,
-                        raqimClassifyService = %s,
-                        raqimDetectLangService = %s,
-                        raqimDialectService = %s,
-                        raqimSentimentService = %s,
-                        raqimSummarizationService = %s
-                    WHERE id = %s
-                    """,
-                    (
-                        json.dumps(ner_result),
-                        json.dumps(classify_result),
-                        json.dumps(language_detection_result),
-                        json.dumps(dialect_detection_result),
-                        json.dumps(sentiment_analysis_result),
-                        summarization_result,
-                        id
-                    )
-                )
-                conn.commit()
+
+                try:
+                    update_video(video_id=id,
+                                 ner_result=ner_result,
+                                 classify_result=classify_result,
+                                 language_detection_result=language_detection_result,
+                                 dialect_detection_result=dialect_detection_result,
+                                 sentiment_analysis_result=sentiment_analysis_result,
+                                 summarization_result=summarization_result)
+
+                except Exception as e:
+                    print(f"❌ Failed to update translation in DB for id {id}: {e}")
+                    logger.error(f"❌ Failed to update translation in DB for id {id}: {e}")
+
+
                 logger.info(f'Successfully processed record: {id}')
                 print(f'Successfully processed record: {id}')
 
-            except Exception as e:
-                logger.error(f"Error processing record {id}: {str(e)}")
-                continue
+        except Exception as e:
+            logger.error(f"Error processing record {id}: {str(e)}")
+            continue
+
 
 def raqim_video_text() -> None:
-    """Main processing function for video text analysis."""
-    with get_db_connection() as conn:
-        # Ensure all required columns exist
-        required_columns = {
-            "raqimNerService": "JSONB",
-            "raqimClassifyService": "JSONB",
-            "raqimDetectLangService": "VARCHAR",
-            "raqimDialectService": "JSONB",
-            "raqimSentimentService": "JSONB",
-            "raqimSummarizationService": "VARCHAR"
-        }
-        
-        for column, type_ in required_columns.items():
-            add_column_if_not_exists(conn, TABLE_NAME, column, type_)
-
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            while True:
+    while True:
                 try:
-                    # Fetch unprocessed records
-                    cur.execute(
-                        f"""
-                        SELECT id, artext 
-                        FROM {TABLE_NAME} 
-                        WHERE updated_by_raqim = false 
-                        AND translated = TRUE 
-                        AND artext is not null 
-                        ORDER BY creationdate DESC 
-                        LIMIT 100
-                        """
-                    )
-                    
-                    rows = cur.fetchall()
-                    
+                    params = {
+                        YARAA_FLAG: 'true',
+                        TRANSLATE_FLAG: 'true',
+                        RAQIM_FLAG: 'false',
+                    }
+                    headers = {'Authorization': f'Bearer {AIN_AUTH_TOKEN}'}
+
+                    print("[DEBUG] Fetching unprocessed videos...")
+
+                    resp = requests.get(FETCH_VIDEOS_URL, headers=headers, params=params,
+                                        timeout=20, verify=False)
+                    try:
+                        rows = resp.json()
+                    except json.JSONDecodeError:
+                        logger.error(f"Failed to parse JSON from fetch: {resp.text}")
+                        print("[ERROR] Failed to parse JSON from fetch")
+                        rows = []
+
+
                     if not rows:
                         print("⏸️ No unprocessed videos. Sleeping for 5 minutes...")
                         logger.info("⏸️ No unprocessed videos. Sleeping for 5 minutes...")
@@ -160,9 +151,8 @@ def raqim_video_text() -> None:
                         continue
 
                     # Process batch
-                    process_batch(rows, conn)
-                    # conn.commit()
-                    
+                    process_batch(rows)
+
                 except Exception as e:
                     logger.error(f"Error in main processing loop: {str(e)}")
                     time.sleep(60)  # Wait a minute before retrying
@@ -177,12 +167,17 @@ def runservice() -> None:
 
 if __name__ == "__main__":
     try:
+        AIN_AUTH_TOKEN = ain_auth_token.get_token().get('token')
+        if not AIN_AUTH_TOKEN:
+            logger.error("Failed to get AIN_AUTH_TOKEN")
+            print("[ERROR] Failed to get AIN_AUTH_TOKEN")
+            exit(1)
+
+        print(f'[DEBUG] AIN_AUTH_TOKEN retrieved successfully === {AIN_AUTH_TOKEN}')
+
         runservice()
     except Exception as ex:
         logger.error(f'Service failed: {str(ex)}')
         print(f"An error occurred. Please check the logs. Error: {str(ex)}")
-    finally:
-        # Cleanup connection pool
-        if 'connection_pool' in globals():
-            connection_pool.closeall()
+
 

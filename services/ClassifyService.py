@@ -2,7 +2,7 @@ from typing import Dict, List, Optional
 import logging
 
 import runServices
-from constants import SERVER, CLASSIFY, CLASSIFY_IN_CLASS, CLASSIFY_LABELS
+from constants import CLASSIFY, CLASSIFY_IN_CLASS, CLASSIFY_LABELS
 from .utils import (
     validate_text, make_request, ServiceError,
     create_session, chunk_text, average_and_normalize

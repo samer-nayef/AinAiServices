@@ -2,7 +2,7 @@ from typing import Optional
 import logging
 
 import runServices
-from constants import SERVER, LANG_DECT
+from constants import  LANG_DECT
 from .utils import validate_text, make_request, ServiceError
 
 logger = logging.getLogger()
