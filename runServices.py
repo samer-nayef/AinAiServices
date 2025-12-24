@@ -48,7 +48,7 @@ def update_video(video_id, ner_result, classify_result, language_detection_resul
     payload = {
         "id": video_id,
         TRANSLATE_FLAG: True,
-        YARAA_FLAG:True,
+        "updated_by_yaraa_service":True,
         RAQIM_FLAG:True,
         "videoDetails": {
             "raqimNerService": json.dumps(ner_result or ""),
@@ -62,7 +62,7 @@ def update_video(video_id, ner_result, classify_result, language_detection_resul
 
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {AIN_AUTH_TOKEN}'
+        'Authorization': f'Bearer {ain_auth_token.get_valid_token()}'
     }
     try:
         resp = requests.put(UPDATE_VIDEO_URL, headers=headers, json=payload, verify=False)
@@ -82,43 +82,61 @@ def process_batch(rows: List[Dict[str, Any]]) -> None:
 
     for row in rows:
         try:
-            if row.get('videoDetails', None):
-                id = row.get('id')
-                text = row.get('videoDetails').get('artext')
+            id = row.get('id')
 
-                # Run all services
+            video_details = row.get('videoDetails')
 
-                ner_result = NerService.run(text=text)
-                classify_result = ClassifyService.run(text=text)
-                language_detection_result = LanguageDetectionService.run(text=text)
-                dialect_detection_result = None
-                if language_detection_result.lower() == 'ar':
-                    dialect_detection_result = dialectDetectionService.run(text=text)
+            if isinstance(video_details, dict):
+                text = video_details.get('artext')
 
-                sentiment_analysis_result = sentimentAnalysisService.run(text=text)
-                summarization_result = summarizationService.run(text=text)
+                if not text or text.strip().lower() == "video not found":
+                    update_video(
+                        video_id=id,
+                        ner_result="video not found",
+                        classify_result="video not found",
+                        language_detection_result="video not found",
+                        dialect_detection_result="video not found",
+                        sentiment_analysis_result="video not found",
+                        summarization_result="video not found"
+                    )
+                else:
+                    ner_result = 'NerService.run(text=text)'
+                    classify_result = 'ClassifyService.run(text=text)'
+                    language_detection_result = 'LanguageDetectionService.run(text=text)'
 
-                # Update database
+                    dialect_detection_result = None
+                    if language_detection_result and language_detection_result.lower() == 'ar':
+                        dialect_detection_result = dialectDetectionService.run(text=text)
 
-                try:
-                    update_video(video_id=id,
-                                 ner_result=ner_result,
-                                 classify_result=classify_result,
-                                 language_detection_result=language_detection_result,
-                                 dialect_detection_result=dialect_detection_result,
-                                 sentiment_analysis_result=sentiment_analysis_result,
-                                 summarization_result=summarization_result)
+                    sentiment_analysis_result = 'sentimentAnalysisService.run(text=text)'
+                    summarization_result = 'summarizationService.run(text=text)'
 
-                except Exception as e:
-                    print(f"❌ Failed to update translation in DB for id {id}: {e}")
-                    logger.error(f"❌ Failed to update translation in DB for id {id}: {e}")
+                    update_video(
+                        video_id=id,
+                        ner_result=ner_result,
+                        classify_result=classify_result,
+                        language_detection_result=language_detection_result,
+                        dialect_detection_result=dialect_detection_result,
+                        sentiment_analysis_result=sentiment_analysis_result,
+                        summarization_result=summarization_result
+                    )
 
-
-                logger.info(f'Successfully processed record: {id}')
-                print(f'Successfully processed record: {id}')
+                    logger.info(f'Successfully processed record: {id}')
+                    print(f'Successfully processed record: {id}')
+            else:
+                update_video(
+                    video_id=id,
+                    ner_result='No Video Details',
+                    classify_result='No Video Details',
+                    language_detection_result='No Video Details',
+                    dialect_detection_result='No Video Details',
+                    sentiment_analysis_result='No Video Details',
+                    summarization_result='No Video Details'
+                )
 
         except Exception as e:
             logger.error(f"Error processing record {id}: {str(e)}")
+            print(f"Error processing record {id}: {str(e)}")
             continue
 
 
@@ -130,12 +148,12 @@ def raqim_video_text() -> None:
                         TRANSLATE_FLAG: 'true',
                         RAQIM_FLAG: 'false',
                     }
-                    headers = {'Authorization': f'Bearer {AIN_AUTH_TOKEN}'}
+                    headers = {'Authorization': f'Bearer {ain_auth_token.get_valid_token()}'}
 
                     print("[DEBUG] Fetching unprocessed videos...")
 
                     resp = requests.get(FETCH_VIDEOS_URL, headers=headers, params=params,
-                                        timeout=20, verify=False)
+                                        timeout=10, verify=False)
                     try:
                         rows = resp.json()
                     except json.JSONDecodeError:
@@ -167,13 +185,13 @@ def runservice() -> None:
 
 if __name__ == "__main__":
     try:
-        AIN_AUTH_TOKEN = ain_auth_token.get_token().get('token')
-        if not AIN_AUTH_TOKEN:
-            logger.error("Failed to get AIN_AUTH_TOKEN")
-            print("[ERROR] Failed to get AIN_AUTH_TOKEN")
-            exit(1)
-
-        print(f'[DEBUG] AIN_AUTH_TOKEN retrieved successfully === {AIN_AUTH_TOKEN}')
+        # AIN_AUTH_TOKEN = ain_auth_token.get_token().get('token')
+        # if not AIN_AUTH_TOKEN:
+        #     logger.error("Failed to get AIN_AUTH_TOKEN")
+        #     print("[ERROR] Failed to get AIN_AUTH_TOKEN")
+        #     exit(1)
+        #
+        # print(f'[DEBUG] AIN_AUTH_TOKEN retrieved successfully === {AIN_AUTH_TOKEN}')
 
         runservice()
     except Exception as ex:
