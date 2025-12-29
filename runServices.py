@@ -51,12 +51,12 @@ def update_video(video_id, ner_result, classify_result, language_detection_resul
         "updated_by_yaraa_service":True,
         RAQIM_FLAG:True,
         "videoDetails": {
-            "raqimNerService": json.dumps(ner_result or ""),
-            "raqimClassifyService": json.dumps(classify_result or ""),
-            "raqimDetectLangService": json.dumps(language_detection_result or ""),
-            "raqimDialectService": json.dumps(dialect_detection_result or ""),
-            "raqimSentimentService": json.dumps(sentiment_analysis_result or ""),
-            "raqimSummarizationService": json.dumps(summarization_result or "")
+            "raqimNerService": str(ner_result) if ner_result else "",
+            "raqimClassifyService": str(classify_result) if classify_result else "",
+            "raqimDetectLangService": language_detection_result or "",
+            "raqimDialectService": str(dialect_detection_result) if dialect_detection_result else "",
+            "raqimSentimentService": str(sentiment_analysis_result) if sentiment_analysis_result else "",
+            "raqimSummarizationService": str(summarization_result) if summarization_result else ""
         }
     }
 
@@ -100,16 +100,16 @@ def process_batch(rows: List[Dict[str, Any]]) -> None:
                         summarization_result="video not found"
                     )
                 else:
-                    ner_result = 'NerService.run(text=text)'
-                    classify_result = 'ClassifyService.run(text=text)'
-                    language_detection_result = 'LanguageDetectionService.run(text=text)'
+                    ner_result = NerService.run(text=text)
+                    classify_result = ClassifyService.run(text=text)
+                    language_detection_result = LanguageDetectionService.run(text=text)
 
                     dialect_detection_result = None
                     if language_detection_result and language_detection_result.lower() == 'ar':
                         dialect_detection_result = dialectDetectionService.run(text=text)
 
-                    sentiment_analysis_result = 'sentimentAnalysisService.run(text=text)'
-                    summarization_result = 'summarizationService.run(text=text)'
+                    sentiment_analysis_result = sentimentAnalysisService.run(text=text)
+                    summarization_result = summarizationService.run(text=text)
 
                     update_video(
                         video_id=id,
